@@ -1,2 +1,6 @@
 *.pdf
 *.sla
+lib/*.jar
+lib/*.jar.tmp
+data/languages/*.lock
+test/__pycache__/
