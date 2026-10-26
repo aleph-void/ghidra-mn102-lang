@@ -2,16 +2,11 @@
 
 @define H_VARIANT 1
 
-#@define BIT_OPS "PCODEOPS"
-#@define BIT_OPS "SHIFTS" 
-@define BIT_OPS "BIT_ADDRS"
 
 # It's sometimes clearer for decompilation to omit the pushing and
 # restoring of the return value for function calls.
 #@define OMIT_RETADDR
 
-# TODO !!! need to fully employ resultflags macro after resolving the use of the above BIT_OPS !!!
-# TODO !!! Need to fill-out SFR bits in 80251.pspec !!!
 
 @if defined(ENDIAN)
 define endian=$(ENDIAN);
@@ -32,86 +27,42 @@ define space ram     type=ram_space      size=3  default;
 #   main rom - 0x080000-0x0a0000 (128kb), mirrored
 #   ext ram  - 0x400000-0x4XXXXX (controller ram)
 
-define space register type=register_space size=1;
+define space register type=register_space size=4;
 
 # P.19 or section 2
 # Data registers
 define register offset=0 size=3 [ D0 D1 D2 D3 ];
-# Address registers
-define register offset=12 size=3 [ A0 A1 A2 SP ];
+# Address registers; A3 is the stack pointer
+define register offset=12 size=3 [ A0 A1 A2 A3 ];
 # Program counter
 define register offset=24 size=3 [ PC ];
 # Multiply/divide register
 define register offset=27 size=2 [ MDR ];
-# Processor status word
+# Processor status word. The eight condition flags are kept in separate byte registers so the
+# decompiler can follow them (the upstream spec put them in a RAM space, which made registers
+# show up as globals in decompilation); reads and writes of PSW pack and unpack them.
+#   bit 0 ZF, 1 NF, 2 CF, 3 VF (16-bit results), 4 ZX, 5 NX, 6 CX, 7 VX (24-bit results),
+#   8-10 IM0-IM2 interrupt mask, 11 IE, 12-13 S0-S1
 define register offset=29 size=2 [ PSW ];
+define register offset=32 size=1 [ ZF NF CF VF ZX NX CX VX ];
+@define ZF  "ZF"
+@define NF  "NF"
+@define CF  "CF"
+@define VF  "VF"
+@define ZX  "ZX"
+@define NX  "NX"
+@define CX  "CX"
+@define VX  "VX"
 
-# These seem to cause issues, not only in code but also with https://github.com/NationalSecurityAgency/ghidra/issues/1144
-# define bitrange ZF=PSW[0,1]   # Zero flag
-#                 NF=PSW[1,1]   # Negative flag
-#                 CF=PSW[2,1]   # Carry flag - 16 bit!
-#                 VF=PSW[3,1]   # Overflow flag - 16 bit!
-#                 ZX=PSW[4,1]   # Extended zero flag
-#                 NX=PSW[5,1]   # Extended negative flag
-#                 CX=PSW[6,1]   # Extended carry flag
-#                 VX=PSW[7,1]   # Extended overflow flag
-#                 IM0=PSW[8,1]  # Interrupt mask 0
-#                 IM1=PSW[9,1]  # Interrupt mask 1
-#                 IM2=PSW[10,1] # Interrupt mask 2
-#                 IE=PSW[11,1]  # Interrupt enable
-#                 S0=PSW[12,1]  # Software bit 0
-#                 S1=PSW[13,1]; # Software bit 1
-
-# so instead use this hack found in the 8051_main file...
-#@define ZF "PSW[0,1]"   # Zero flag
-#@define NF "PSW[1,1]"   # Negative flag
-#@define CF "PSW[2,1]"   # Carry flag - 16 bit!
-#@define VF "PSW[3,1]"   # Overflow flag - 16 bit!
-#@define ZX "PSW[4,1]"   # Extended zero flag
-#@define NX "PSW[5,1]"   # Extended negative flag
-#@define CX "PSW[6,1]"   # Extended carry flag
-#@define VX "PSW[7,1]"   # Extended overflow flag
-#@define IM0 "PSW[8,1]"  # Interrupt mask 0
-#@define IM1 "PSW[9,1]"  # Interrupt mask 1
-#@define IM2 "PSW[10,1]" # Interrupt mask 2
-#@define IE "PSW[11,1]"  # Interrupt enable
-#@define S0 "PSW[12,1]"  # Software bit 0
-#@define S1 "PSW[13,1]"  # Software bit 1
-
-# Hack further - for some reason, this works!?
-# (it can't be a register space for reasons that aren't obvious to me)
-define space hack_register type=ram_space size=1;
-define hack_register offset=0 size=1 [ PSW_ZF PSW_NF PSW_CF PSW_VF PSW_ZX PSW_NX PSW_CX PSW_VX PSW_IM0 PSW_IM1 PSW_IM2 PSW_IE PSW_S0 PSW_S1 ];
-@define ZF  "PSW_ZF"
-@define NF  "PSW_NF"
-@define CF  "PSW_CF"
-@define VF  "PSW_VF"
-@define ZX  "PSW_ZX"
-@define NX  "PSW_NX"
-@define CX  "PSW_CX"
-@define VX  "PSW_VX"
-@define IM0 "PSW_IM0"
-@define IM1 "PSW_IM1"
-@define IM2 "PSW_IM2"
-@define IE  "PSW_IE"
-@define S0  "PSW_S0"
-@define S1  "PSW_S1"
-
-#define register offset=32 size=2 [pswcopy];
-#@define ZF "pswcopy[0,1]"   # Zero flag
-#@define NF "pswcopy[1,1]"   # Negative flag
-#@define CF "pswcopy[2,1]"   # Carry flag - 16 bit!
-#@define VF "pswcopy[3,1]"   # Overflow flag - 16 bit!
-#@define ZX "pswcopy[4,1]"   # Extended zero flag
-#@define NX "pswcopy[5,1]"   # Extended negative flag
-#@define CX "pswcopy[6,1]"   # Extended carry flag
-#@define VX "pswcopy[7,1]"   # Extended overflow flag
-#@define IM0 "pswcopy[8,1]"  # Interrupt mask 0
-#@define IM1 "pswcopy[9,1]"  # Interrupt mask 1
-#@define IM2 "pswcopy[10,1]" # Interrupt mask 2
-#@define IE "pswcopy[11,1]"  # Interrupt enable
-#@define S0 "pswcopy[12,1]"  # Software bit 0
-#@define S1 "pswcopy[13,1]"  # Software bit 1
+macro getPSW(v) {
+	v = (PSW & 0xff00) | (zext(VX) << 7) | (zext(CX) << 6) | (zext(NX) << 5) | (zext(ZX) << 4)
+		| (zext(VF) << 3) | (zext(CF) << 2) | (zext(NF) << 1) | zext(ZF);
+}
+macro setPSW(v) {
+	PSW = v;
+	ZF = (v & 0x01) != 0; NF = (v & 0x02) != 0; CF = (v & 0x04) != 0; VF = (v & 0x08) != 0;
+	ZX = (v & 0x10) != 0; NX = (v & 0x20) != 0; CX = (v & 0x40) != 0; VX = (v & 0x80) != 0;
+}
 
 #TOKENS - page 6
 # There are 7 formats; 1-3 uses 1 opcode byte w/ registers and some other data
@@ -180,20 +131,21 @@ Addr24_2: abs24 is abs24 { export *:2 abs24; }
 Addr16_3: abs16 is abs16 { export *:3 abs16; }
 Addr24_3: abs24 is abs24 { export *:3 abs24; }
 
-attach variables [ a1 a2 a1w a2w ] [ A0 A1 A2 SP ];
+attach variables [ a1 a2 a1w a2w ] [ A0 A1 A2 A3 ];
 attach variables [ d1 d2 d1w d2w d0w ] [ D0 D1 D2 D3 ];
 
-define pcodeop broken_abs_read;
-define pcodeop broken_abs_write;
-define pcodeop broken_constant;
+define pcodeop software_break;
+define pcodeop syscall;
+# PXST changes how the next add/sub saturates (an internal mode the manual does not describe further)
+define pcodeop pxst;
 
 # In order of pages in the manual
 :MOV d1w,a2w is opcode2=0xF2 & opcode2x=0x3 & d1w & a2w { a2w = d1w; }
 :MOV a1w,d2w is opcode2=0xF2 & opcode2x=0xF & a1w & d2w { d2w = a1w; }
 :MOV d1,d2 is opcode1=8 & d1 & d2 { d2 = d1; } # Note: d2 != d1, but that won't matter yet
 :MOV a1w,a2w is opcode2=0xF2 & opcode2x=0x7 & a1w & a2w { a2w = a1w; }
-:MOV "PSW",d2w is opcode2=0xF3 & opcode2x=0xF & e1w=0 & d2w { d2w = zext(PSW); }
-:MOV d1w,"PSW" is opcode2=0xF3 & opcode2x=0xD & d1w & e2w=0 { PSW = d1w:2; }
+:MOV "PSW",d2w is opcode2=0xF3 & opcode2x=0xF & e1w=0 & d2w { local v:2; getPSW(v); d2w = zext(v); }
+:MOV d1w,"PSW" is opcode2=0xF3 & opcode2x=0xD & d1w & e2w=0 { local v:2 = d1w:2; setPSW(v); }
 :MOV "MDR",d2w is opcode2=0xF3 & opcode2x=0xE & e1w=0 & d2w { d2w = zext(MDR); }
 :MOV d1w,"MDR" is opcode2=0xF3 & opcode2x=0xC & d1w & e2w=0 { MDR = d1w:2; }
 
@@ -205,7 +157,6 @@ define pcodeop broken_constant;
 :MOV (d0w,a1w),d2w is opcode2=0xF1 & opcode20=1 & d0w & a1w & d2w { d2w = sext(*:2 (a1w + d0w)); }
 :MOV (Addr16_2),d2 is opcode1=0xC & e1=2 & d2; Addr16_2 { d2 = sext(Addr16_2); } # C8-CB
 :MOV (Addr24_2),d2w is opcode2=0xF4 & opcode2x=0xC & e1w = 0 & d2w; Addr24_2 { d2w = sext(Addr24_2); }
-:MOV (a1),a2 is opcode1=7 & a1 & a2; delta8=0 { a2 = *:3 a1; } # Special case of the following
 :MOV (delta8,a1),a2 is opcode1=7 & a1 & a2; delta8 { a2 = *:3 (a1 + delta8); }
 :MOV (delta16,a1w),a2w is opcode2=0xF7 & opcode2x=0xB & a1w & a2w; delta16 { a2w = *:3 (delta16 + a1w); }
 :MOV (delta24,a1w),a2w is opcode2=0xF4 & opcode2x=0xF & a1w & a2w; delta24 { a2w = *:3 (delta24 + a1w); }
@@ -219,15 +170,14 @@ define pcodeop broken_constant;
 :MOV d2w,(d0w,a1w) is opcode2=0xF1 & opcode20=3 & d0w & a1w & d2w { *:2 (a1w + d0w) = d2w:2; }
 :MOV d2,(Addr16_2) is opcode1=0xC & e1=0 & d2; Addr16_2 { Addr16_2 = d2:2; }
 :MOV d2w,(Addr24_2) is opcode2=0xF4 & opcode2x=0x4 & e1w=0 & d2w; Addr24_2 { Addr24_2 = d2w:2; }
-:MOV a2,(a1) is opcode1=5 & a1 & a2; delta8=0 { *:3 a1 = a2; } # Special case of the following
 :MOV a2,(delta8,a1) is opcode1=5 & a1 & a2; delta8 { *:3 (a1+delta8) = a2; }
 :MOV a2w,(delta16,a1w) is opcode2=0xF7 & opcode2x=0xA & a1w & a2w; delta16 { *:3 (delta16 + a1w) = a2w; }
 :MOV a2w,(delta24,a1w) is opcode2=0xF4 & opcode2x=0x1 & a1w & a2w; delta24 { *:3 (delta24 + a1w) = a2w; }
 :MOV a2w,(Addr16_3) is opcode2=0xF7 & opcode2x=0x2 & e1w=0 & a2w; Addr16_3 { Addr16_3 = a2w; }
 :MOV a2w,(Addr24_3) is opcode2=0xF4 & opcode2x=0x5 & e1w=0 & a2w; Addr24_3 { Addr24_3 = a2w; }
 
-:MOV Imm8,d2 is opcode1=8 & d2 & d2=d1; Imm8 { d2 = sext(Imm8); } # Replaces d2 = d1 (MOV d1,d2) when same registers
-:MOV Imm16,d2 is opcode1=0xF & e1=2 & d2; Imm16 { d2 = sext(Imm16); } # F8-FB
+:MOV SImm8,d2 is opcode1=8 & d2 & d2=d1; SImm8 { d2 = sext(SImm8); } # Replaces d2 = d1 (MOV d1,d2) when same registers
+:MOV SImm16,d2 is opcode1=0xF & e1=2 & d2; SImm16 { d2 = sext(SImm16); } # F8-FB
 :MOV Imm24,d2w is opcode2=0xF4 & opcode2x=0x7 & e1w=0 & d2w; Imm24 { d2w = Imm24; }
 :MOV Imm16,a2 is opcode1=0xD & e1=3 & a2; Imm16 { a2 = zext(Imm16); } # DC-DF
 :MOV Imm24,a2w is opcode2=0xF4 & opcode2x=0x7 & e1w=1 & a2w; Imm24 { a2w = Imm24; }
@@ -279,242 +229,191 @@ define pcodeop broken_constant;
 :EXTXB d2 is opcode1=0xB & e1=2 & d2 { d2 = sext(d2:1); }
 :EXTXBU d2 is opcode1=0xB & e1=3 & d2 { d2 = zext(d2:1); }
 
-macro addflags(op1, op2) {   # Flags set by add instructions
-    $(CX) = ( carry(op1:3, op2:3));
-    $(VX) = (scarry(op1:3, op2:3));
-    $(CF) = ( carry(op1:2, op2:2));
-    $(VF) = (scarry(op1:2, op2:2));
+# Arithmetic flags (Ghidra-Rare): every add/sub/cmp sets all eight flags, VF/CF/NF/ZF from the
+# low 16 bits and VX/CX/NX/ZX from all 24 bits, with an optional carry/borrow input. This
+# replaces upstream's macros, which the immediate forms could not use (their flags were left
+# unchanged) and which SUBC got wrong; the behaviour follows the MN10200 manual as implemented by
+# MAME's MN10200 core (do_add/do_sub).
+macro add24(r, a, b, c) {
+	local xa:3 = a; local xb:3 = b; local xc:3 = zext(c);
+	local t:3 = xa + xb;
+	r = t + xc;
+	CX = carry(xa, xb) || carry(t, xc);
+	VX = scarry(xa, xb) ^^ scarry(t, xc);
+	local ya:2 = xa:2; local yb:2 = xb:2; local yc:2 = xc:2; local yt:2 = ya + yb;
+	CF = carry(ya, yb) || carry(yt, yc);
+	VF = scarry(ya, yb) ^^ scarry(yt, yc);
+	local yr:2 = r:2;
+	NX = r s< 0; ZX = r == 0; NF = yr s< 0; ZF = yr == 0;
+}
+macro sub24(r, a, b, c) {
+	local xa:3 = a; local xb:3 = b; local xc:3 = zext(c);
+	local t:3 = xa - xb;
+	r = t - xc;
+	CX = (xa < xb) || (t < xc);
+	VX = sborrow(xa, xb) ^^ sborrow(t, xc);
+	local ya:2 = xa:2; local yb:2 = xb:2; local yc:2 = xc:2; local yt:2 = ya - yb;
+	CF = (ya < yb) || (yt < yc);
+	VF = sborrow(ya, yb) ^^ sborrow(yt, yc);
+	local yr:2 = r:2;
+	NX = r s< 0; ZX = r == 0; NF = yr s< 0; ZF = yr == 0;
+}
+# Logic and shift results: NF/ZF from the low 16 bits, VF and CF cleared, the X flags unchanged.
+macro nz16(v) {
+	local yv:2 = v:2;
+	NF = yv s< 0; ZF = yv == 0; CF = 0; VF = 0;
 }
 
-macro resultflags(op) {
-    $(NX) = (op:3 s< 0);
-    $(ZX) = (op:3 == 0);
-    $(NF) = (op:2 s< 0);
-    $(ZF) = (op:2 == 0);
-}
+:ADD d1,d2 is opcode1=0x9 & d1 & d2 { local r:3; add24(r, d2, d1, 0:1); d2 = r; }
+:ADD d1w,a2w is opcode2=0xF2 & opcode2x=0x0 & d1w & a2w { local r:3; add24(r, a2w, d1w, 0:1); a2w = r; }
+:ADD a1w,d2w is opcode2=0xF2 & opcode2x=0xC & a1w & d2w { local r:3; add24(r, d2w, a1w, 0:1); d2w = r; }
+:ADD a1w,a2w is opcode2=0xF2 & opcode2x=0x4 & a1w & a2w { local r:3; add24(r, a2w, a1w, 0:1); a2w = r; }
+:ADD SImm8,d2 is opcode1=0xD & e1 = 1 & d2; SImm8 { local i:3 = sext(SImm8); local r:3; add24(r, d2, i, 0:1); d2 = r; } # D4-D7
+:ADD SImm16,d2w is opcode2=0xF7 & opcode2x=0x1 & e1w = 2 & d2w; SImm16 { local i:3 = sext(SImm16); local r:3; add24(r, d2w, i, 0:1); d2w = r; }
+:ADD Imm24,d2w is opcode2=0xF4 & opcode2x=0x6 & e1w = 0 & d2w; Imm24 { local r:3; add24(r, d2w, Imm24, 0:1); d2w = r; }
+:ADD SImm8,a2 is opcode1=0xD & e1=0 & a2; SImm8 { local i:3 = sext(SImm8); local r:3; add24(r, a2, i, 0:1); a2 = r; } # D0-D3
+:ADD SImm16,a2w is opcode2=0xF7 & opcode2x=0x0 & e1w = 2 & a2w; SImm16 { local i:3 = sext(SImm16); local r:3; add24(r, a2w, i, 0:1); a2w = r; }
+:ADD Imm24,a2w is opcode2=0xF4 & opcode2x=0x6 & e1w = 1 & a2w; Imm24 { local r:3; add24(r, a2w, Imm24, 0:1); a2w = r; }
 
-:ADD d1,d2 is opcode1=0x9 & d1 & d2 { addflags(d1, d2); d2 = d1 + d2; resultflags(d2); }
-:ADD d1w,a2w is opcode2=0xF2 & opcode2x=0x0 & d1w & a2w { addflags(d1w, a2w); a2w = d1w + a2w; resultflags(a2w); }
-:ADD a1w,d2w is opcode2=0xF2 & opcode2x=0xC & a1w & d2w { addflags(a1w, d2w); d2w = a1w + d2w; resultflags(d2w); }
-:ADD a1w,a2w is opcode2=0xF2 & opcode2x=0x4 & a1w & a2w { addflags(a1w, a2w); a2w = a1w + a2w; resultflags(a2w); }
-# It seems like addflags doesn't work with immediate
-:ADD SImm8,d2 is opcode1=0xD & e1 = 1 & d2; SImm8 { # D4-D7
-    #addflags(sext(SImm8), d2);
-    d2 = sext(SImm8) + d2; resultflags(d2);
-}
-:ADD SImm16,d2w is opcode2=0xF7 & opcode2x=0x1 & e1w = 2 & d2w; SImm16 {
-    #addflags(sext(SImm16), d2w);
-    d2w = sext(SImm16) + d2w; resultflags(d2w);
-}
-:ADD Imm24,d2w is opcode2=0xF4 & opcode2x=0x6 & e1w = 0 & d2w; Imm24 { addflags(Imm24, d2w); d2w = sext(Imm24) + d2w; resultflags(d2w); }
-:ADD SImm8,a2 is opcode1=0xD & e1=0 & a2; SImm8 { # D0-D3
-    #addflags(sext(SImm8), a2);
-    a2 = sext(SImm8) + a2; resultflags(a2);
-}
-:ADD SImm16,a2w is opcode2=0xF7 & opcode2x=0x0 & e1w = 2 & a2w; SImm16 {
-    #addflags(sext(SImm16), a2w);
-    a2w = sext(SImm16) + a2w; resultflags(a2w);
-}
-:ADD Imm24,a2w is opcode2=0xF4 & opcode2x=0x6 & e1w = 1 & a2w; Imm24 { addflags(Imm24, a2w); a2w = Imm24 + a2w; resultflags(a2w); }
-
+# ADDC/SUBC: ZF can only stay set (a multi-word result is zero only if every word is), as in
+# MAME's core; the other flags come from this word.
 :ADDC d1w,d2w is opcode2=0xF2 & opcode2x=0x8 & d1w & d2w {
-    local old_cf:3 = zext($(CF));
-    $(CX) = ( carry(d1w:3, d2w:3)) | ( carry(d1w:3 + d2w:3, old_cf));
-    $(VX) = (scarry(d1w:3, d2w:3)) | (scarry(d1w:3 + d2w:3, old_cf));
-    $(VF) = (scarry(d1w:2, d2w:2)) | (scarry(d1w:2 + d2w:2, old_cf:2));
-    $(CF) = ( carry(d1w:2, d2w:2)) | ( carry(d1w:2 + d2w:2, old_cf:2));
-    d2w = d1w + d2w + old_cf;
-    resultflags(d2w);
+    local z:1 = ZF;
+    local r:3; add24(r, d2w, d1w, CF); d2w = r;
+    ZF = ZF && z;
 }
 
 # For stack pointer mainly
 # This instruction isn't actually used in the program I'm analyzing; instead, it just uses ADD.
 # The point is "incrementing the stack pointer (A3) past the stack frame at the end of a subroutine without changing the PSW flags reporting results".
-# I guess that just doesn't matter here, which is fine by me.
 :ADDNF SImm8,a2w is opcode2=0xF5 & opcode2x=0x0 & e1w=3 & a2w; SImm8 { a2w = a2w + sext(SImm8); }
 
-macro subflags(op1, op2) {   # Flags set by sub instructions - not sure I got this right
-    $(CX) = (op1:3 < op2:3);
-    $(VX) = (sborrow(op1:3, op2:3));
-    $(CF) = (op1:2 < op2:2);
-    $(VF) = (sborrow(op1:2, op2:2));
-}
+:SUB d1,d2 is opcode1=0xA & d1 & d2 { local r:3; sub24(r, d2, d1, 0:1); d2 = r; }
+:SUB d1w,a2w is opcode2=0xF2 & opcode2x=0x1 & d1w & a2w { local r:3; sub24(r, a2w, d1w, 0:1); a2w = r; }
+:SUB a1w,d2w is opcode2=0xF2 & opcode2x=0xD & a1w & d2w { local r:3; sub24(r, d2w, a1w, 0:1); d2w = r; }
+:SUB a1w,a2w is opcode2=0xF2 & opcode2x=0x5 & a1w & a2w { local r:3; sub24(r, a2w, a1w, 0:1); a2w = r; }
+:SUB SImm16,d2w is opcode2=0xF7 & opcode2x=0x1 & e1w=3 & d2w; SImm16 { local i:3 = sext(SImm16); local r:3; sub24(r, d2w, i, 0:1); d2w = r; }
+:SUB Imm24,d2w is opcode2=0xF4 & opcode2x=0x6 & e1w=2 & d2w; Imm24 { local r:3; sub24(r, d2w, Imm24, 0:1); d2w = r; }
+:SUB SImm16,a2w is opcode2=0xF7 & opcode2x=0x0 & e1w=3 & a2w; SImm16 { local i:3 = sext(SImm16); local r:3; sub24(r, a2w, i, 0:1); a2w = r; }
+:SUB Imm24,a2w is opcode2=0xF4 & opcode2x=0x6 & e1w=3 & a2w; Imm24 { local r:3; sub24(r, a2w, Imm24, 0:1); a2w = r; }
 
-:SUB d1,d2 is opcode1=0xA & d1 & d2 { subflags(d2, d1); d2 = d2 - d1; resultflags(d2); }
-:SUB d1w,a2w is opcode2=0xF2 & opcode2x=0x1 & d1w & a2w { subflags(a2w, d1w); a2w = a2w - d1w; resultflags(a2w); }
-:SUB a1w,d2w is opcode2=0xF2 & opcode2x=0xD & a1w & d2w { subflags(d2w, a1w); d2w = d2w - a1w; resultflags(d2w); }
-:SUB a1w,a2w is opcode2=0xF2 & opcode2x=0x5 & a1w & a2w { subflags(a2w, a1w); a2w = a2w - a1w; resultflags(a2w); }
-# Same as with add, subflags doesn't like immediate data
-:SUB SImm16,d2w is opcode2=0xF7 & opcode2x=0x1 & e1w=3 & d2w; SImm16 {
-    #subflags(d2w, sext(SImm16));
-    d2w = d2w - sext(SImm16); resultflags(d2w);
-}
-:SUB Imm24,d2w is opcode2=0xF4 & opcode2x=0x6 & e1w=2 & d2w; Imm24 { subflags(d2w, Imm24); d2w = d2w - Imm24; resultflags(d2w); }
-:SUB SImm16,a2w is opcode2=0xF7 & opcode2x=0x0 & e1w=3 & a2w; SImm16 {
-    #subflags(a2w, sext(SImm16));
-    a2w = a2w - sext(SImm16); resultflags(a2w);
-}
-:SUB Imm24,a2w is opcode2=0xF4 & opcode2x=0x6 & e1w=3 & a2w; Imm24 { subflags(a2w, Imm24); a2w = a2w - Imm24; resultflags(a2w); }
-
+# Upstream computed d1w - d2w (operands reversed) and set CX/VX twice instead of CF/VF.
 :SUBC d1w,d2w is opcode2=0xF2 & opcode2x=0x9 & d1w & d2w {
-    local old_cf:3 = zext($(CF));
-    $(CX) = (d2w:3 < d1w:3) | (d2w:3 - d1w:3 < old_cf);
-    $(VX) = (sborrow(d2w:3, d1w:3)) | (sborrow(d2w:3 - d1w:3, old_cf));
-    $(CX) = (d2w:2 < d1w:2) | (d2w:2 - d1w:2 < old_cf:2);
-    $(VX) = (sborrow(d2w:2, d1w:2)) | (sborrow(d2w:2 - d1w:2, old_cf:2));
-    d2w = d1w - d2w - old_cf;
-    resultflags(d2w);
+    local z:1 = ZF;
+    local r:3; sub24(r, d2w, d1w, CF); d2w = r;
+    ZF = ZF && z;
 }
 
 :MUL d1w,d2w is opcode2=0xF3 & opcode2x=0x4 & d1w & d2w {
-    # VX, CX, NX, ZX, CF undefined
+    # signed 16 x 16; the low 16 bits of the product (sign-extended) to Dn, the high 16 to MDR.
+    # VF is cleared; NF/ZF from the 32-bit product; the other flags are undefined.
     local res32:4 = sext(d1w:2) * sext(d2w:2);
     d2w = res32:3;
     MDR = res32(2);
-    $(VF) = 0;
-    $(NF) = (res32 s< 0);
-    $(ZF) = (res32 == 0);
+    VF = 0;
+    NF = (res32 s< 0);
+    ZF = (res32 == 0);
 }
 :MULU d1w,d2w is opcode2=0xF3 & opcode2x=0x5 & d1w & d2w {
-    # VX, CX, NX, ZX, CF undefined
     local res32:4 = zext(d1w:2) * zext(d2w:2);
     d2w = res32:3;
     MDR = res32(2);
-    $(VF) = 0;
-    $(NF) = (res32 s< 0);
-    $(ZF) = (res32 == 0);
+    VF = 0;
+    NF = (res32 s< 0);
+    ZF = (res32 == 0);
 }
 :DIVU d1w,d2w is opcode2=0xF3 & opcode2x=0x6 & d1w & d2w {
+    # (MDR:Dn[15:0]) / Dm[15:0]: quotient to Dn, remainder to MDR. A zero divisor or a quotient
+    # wider than 16 bits sets VF (Dn and MDR are then undefined; left unchanged here).
     local dividend:4 = zext(MDR) << 16 | zext(d2w:2);
     local divisor:4 = zext(d1w:2);
+    VF = 1;
+    if (divisor == 0) goto <dz>;
     local quotient:4 = dividend / divisor;
     local remainder:4 = dividend % divisor;
-
+    VF = quotient > 0xffff;
+    if (VF) goto <dz>;
     d2w = zext(quotient:2);
-    MDR = remainder:2; # Will always fit
-
-    $(VF) = (divisor == 0) | (quotient >> 16 != 0);
-    $(NX) = 0; # Quotient d2w can't have bit 23 set
-    $(ZX) = (d2w:3 == 0);
-    $(NF) = (d2w:2 s< 0);
-    $(ZF) = (d2w:2 == 0);
-    # VX, CX, CF undefined
-    # VF 1 is overflow or div by 0, in which case the other registers are undefined
+    MDR = remainder:2;
+<dz>
+    local yq:2 = d2w:2;
+    NX = 0;
+    ZX = (d2w:3 == 0);
+    NF = yq s< 0;
+    ZF = yq == 0;
+    CF = 0;
 }
 
-# These generate warnings about unused extensions/truncations
-:CMP d1w,d2w is opcode2=0xF3 & opcode2x=0x9 & d1w & d2w { subflags(d2w, d1w); resultflags(d2w - d1w); }
-:CMP d1w,a2w is opcode2=0xF2 & opcode2x=0x2 & d1w & a2w { subflags(a2w, d1w); resultflags(a2w - d1w); }
-:CMP a1w,d2w is opcode2=0xF2 & opcode2x=0xE & a1w & d2w { subflags(d2w, a1w); resultflags(d2w - a1w); }
-:CMP a1w,a2w is opcode2=0xF2 & opcode2x=0x6 & a1w & a2w { subflags(a2w, a1w); resultflags(a2w - a1w); }
-# Like the issue with subtract... except this exists _only_ for the flags...
-:CMP SImm8,d2 is opcode1=0xD & e1=2 & d2; SImm8 {
-    $(CX) = (d2 < sext(SImm8));
-    $(VX) = (sborrow(d2, sext(SImm8)));
-    $(CF) = (d2:2 < sext(SImm8));
-    $(VF) = (sborrow(d2:2, sext(SImm8)));
-    $(NX) = (d2 s< sext(SImm8));
-    $(ZX) = (d2 == sext(SImm8));
-    $(NF) = (d2:2 s< sext(SImm8));
-    $(ZF) = (d2:2 == sext(SImm8));
-}
-:CMP SImm16,d2w is opcode2=0xF7 & opcode2x=0x4 & e1w=2 & d2w; SImm16 {
-    $(CX) = (d2w < sext(SImm16));
-    $(VX) = (sborrow(d2w, sext(SImm16)));
-    $(CF) = (d2w:2 < SImm16);
-    $(VF) = (sborrow(d2w:2, SImm16));
-    $(NX) = (d2w s< sext(SImm16));
-    $(ZX) = (d2w == sext(SImm16));
-    $(NF) = (d2w:2 s< SImm16);
-    $(ZF) = (d2w:2 == SImm16);
-}
-:CMP Imm24,d2w is opcode2=0xF4 & opcode2x=0x7 & e1w=2 & d2w; Imm24 { subflags(d2w, Imm24); resultflags(d2w - Imm24); }
-:CMP Imm16,a2 is opcode1=0xE & e1=3 & a2; Imm16 { # Uses zero extension!
-    $(CX) = (a2 < zext(Imm16));
-    $(VX) = (sborrow(a2, zext(Imm16)));
-    $(CF) = (a2:2 < Imm16);
-    $(VF) = (sborrow(a2:2, Imm16));
-    $(NX) = (a2 s< zext(Imm16));
-    $(ZX) = (a2 == zext(Imm16));
-    $(NF) = (a2:2 s< Imm16);
-    $(ZF) = (a2:2 == Imm16);
-}
-:CMP Imm24,a2w is opcode2=0xF4 & opcode2x=0x7 & e1w=3 & a2w; Imm24 { subflags(a2w, Imm24); resultflags(a2w - Imm24); }
+:CMP d1w,d2w is opcode2=0xF3 & opcode2x=0x9 & d1w & d2w { local r:3; sub24(r, d2w, d1w, 0:1); }
+:CMP d1w,a2w is opcode2=0xF2 & opcode2x=0x2 & d1w & a2w { local r:3; sub24(r, a2w, d1w, 0:1); }
+:CMP a1w,d2w is opcode2=0xF2 & opcode2x=0xE & a1w & d2w { local r:3; sub24(r, d2w, a1w, 0:1); }
+:CMP a1w,a2w is opcode2=0xF2 & opcode2x=0x6 & a1w & a2w { local r:3; sub24(r, a2w, a1w, 0:1); }
+:CMP SImm8,d2 is opcode1=0xD & e1=2 & d2; SImm8 { local i:3 = sext(SImm8); local r:3; sub24(r, d2, i, 0:1); }
+:CMP SImm16,d2w is opcode2=0xF7 & opcode2x=0x4 & e1w=2 & d2w; SImm16 { local i:3 = sext(SImm16); local r:3; sub24(r, d2w, i, 0:1); }
+:CMP Imm24,d2w is opcode2=0xF4 & opcode2x=0x7 & e1w=2 & d2w; Imm24 { local r:3; sub24(r, d2w, Imm24, 0:1); }
+:CMP Imm16,a2 is opcode1=0xE & e1=3 & a2; Imm16 { local i:3 = zext(Imm16); local r:3; sub24(r, a2, i, 0:1); } # zero-extended
+:CMP Imm24,a2w is opcode2=0xF4 & opcode2x=0x7 & e1w=3 & a2w; Imm24 { local r:3; sub24(r, a2w, Imm24, 0:1); }
 
-macro bitwise16resultflags(op) {
-    $(VF) = 0;
-    $(CF) = 0;
-    $(NF) = (op:2 s< 0);
-    $(ZF) = (op:2 == 0);
-}
+# Logic operations work on the low 16 bits; the upper 8 bits of Dn are kept.
+:AND d1w,d2w is opcode2=0xF3 & opcode2x=0x0 & d1w & d2w { d2w = d2w & (d1w | 0xFF0000); nz16(d2w); }
+:AND imm8,d2w is opcode2=0xF5 & opcode2x=0x0 & e1w=0 & d2w; imm8 { d2w = d2w & (0xFF0000 | imm8); nz16(d2w); }
+:AND imm16,d2w is opcode2=0xF7 & opcode2x=0x0 & e1w=0 & d2w; imm16 { d2w = d2w & (0xFF0000 | imm16); nz16(d2w); }
+:AND imm16,"PSW" is opcode2=0xF7 & opcode2x=0x1 & e1w=0 & e2w=0; imm16 { local v:2; getPSW(v); v = v & imm16; setPSW(v); }
 
-:AND d1w,d2w is opcode2=0xF3 & opcode2x=0x0 & d1w & d2w { d2w = d2w & (d1w | 0xFF0000); bitwise16resultflags(d2w); }
-:AND imm8,d2w is opcode2=0xF5 & opcode2x=0x0 & e1w=0 & d2w; imm8 { d2w = (d2w & imm8) | (d2w & 0xFF0000); bitwise16resultflags(d2w); }
-#:AND imm8,d2w is opcode2=0xF5 & opcode2x=0x0 & e1w=0 & d2w; imm8 { d2w = d2w & (imm8 | 0xFF0000); bitwise16resultflags(d2w); } # equivalent to above, but cleaner if it worked
-:AND imm16,d2w is opcode2=0xF7 & opcode2x=0x0 & e1w=0 & d2w; imm16 { d2w = (d2w & imm16) | (d2w & 0xFF0000); bitwise16resultflags(d2w); }
-#:AND imm16,d2w is opcode2=0xF7 & opcode2x=0x0 & e1w=0 & d2w; imm16 { d2w = d2w & (imm16 | 0xFF0000); bitwise16resultflags(d2w); } # equivalent to above, but cleaner if it worked
-:AND imm16,"PSW" is opcode2=0xF7 & opcode2x=0x1 & e1w=0 & e2w=0; imm16 { PSW = PSW & imm16; }
+:OR d1w,d2w is opcode2=0xF3 & opcode2x=0x1 & d1w & d2w { d2w = d2w | (d1w & 0x00FFFF); nz16(d2w); }
+:OR imm8,d2w is opcode2=0xF5 & opcode2x=0x0 & e1w=2 & d2w; imm8 { d2w = d2w | imm8; nz16(d2w); }
+:OR imm16,d2w is opcode2=0xF7 & opcode2x=0x4 & e1w=0 & d2w; imm16 { d2w = d2w | imm16; nz16(d2w); }
+:OR imm16,"PSW" is opcode2=0xF7 & opcode2x=0x1 & e1w=1 & e2w=0; imm16 { local v:2; getPSW(v); v = v | imm16; setPSW(v); }
 
-:OR d1w,d2w is opcode2=0xF3 & opcode2x=0x1 & d1w & d2w { d2w = d2w | (d1w & 0x00FFFF); bitwise16resultflags(d2w); }
-:OR imm8,d2w is opcode2=0xF5 & opcode2x=0x0 & e1w=2 & d2w; imm8 { d2w = d2w | imm8; bitwise16resultflags(d2w); } # only compiles without zext, but not needed here fortunately
-:OR imm16,d2w is opcode2=0xF7 & opcode2x=0x4 & e1w=0 & d2w; imm16 { d2w = d2w | imm16; bitwise16resultflags(d2w); } # Ditto
-:OR imm16,"PSW" is opcode2=0xF7 & opcode2x=0x1 & e1w=1 & e2w=0; imm16 { PSW = PSW | imm16; }
+:XOR d1w,d2w is opcode2=0xF3 & opcode2x=0x2 & d1w & d2w { d2w = d2w ^ (d1w & 0x00FFFF); nz16(d2w); }
+:XOR imm16,d2w is opcode2=0xF7 & opcode2x=0x4 & e1w=3 & d2w; imm16 { d2w = d2w ^ imm16; nz16(d2w); }
 
-:XOR d1w,d2w is opcode2=0xF3 & opcode2x=0x2 & d1w & d2w { d2w = d2w ^ (d1w & 0x00FFFF); bitwise16resultflags(d2w); }
-:XOR imm16,d2w is opcode2=0xF7 & opcode2x=0x4 & e1w=3 & d2w; imm16 { d2w = d2w ^ imm16; } # also won't work with zext
+:NOT d2w is opcode2=0xF3 & opcode2x=0xE & e1w=1 & d2w { d2w = d2w ^ 0xFFFF; nz16(d2w); }
 
-:NOT d2w is opcode2=0xF3 & opcode2x=0xE & e1w=1 & d2w { d2w = d2w ^ 0xFFFF; bitwise16resultflags(d2w); }
-
+# One-bit shifts and rotates of the low 16 bits; the upper 8 bits are kept (ASR copies bit 15).
 :ASR d2w is opcode2=0xF3 & opcode2x=0x3 & e1w=2 & d2w {
-    $(VF) = 0;
-    $(CF) = (d2w & 1) != 0;
-    # SLEIGH's >> is arithmetic shift left, but we need to truncate so we have to handle it manually.
-    # Fortunately it's easy to mix in with the handling of the top 8 bits.
-    d2w = ((d2w & 0xFFFF) >> 1) | (d2w & 0xFF8000);
-    $(NF) = (d2w:2 s< 0);
-    $(ZF) = (d2w:2 == 0);
+    local v:3 = d2w;
+    d2w = (v & 0xFF8000) | ((v >> 1) & 0x007FFF);
+    nz16(d2w);
+    CF = (v & 1) != 0;
 }
 :LSR d2w is opcode2=0xF3 & opcode2x=0x3 & e1w=3 & d2w {
-    $(VF) = 0;
-    $(CF) = (d2w & 1) != 0;
-    # We need to zero bit 15 here.  I think this needs to be done manually, but I'm not sure.
-    d2w = (((d2w & 0x00FFFF) >> 1) | (d2w & 0xFF0000)) & 0xFF7FFF;
-    $(NF) = (d2w:2 s< 0);
-    $(ZF) = (d2w:2 == 0);
+    local v:3 = d2w;
+    d2w = (v & 0xFF0000) | ((v >> 1) & 0x007FFF);
+    nz16(d2w);
+    CF = (v & 1) != 0;
 }
 # Left shift is done by adding to itself
 
 :ROR d2w is opcode2=0xF3 & opcode2x=0x3 & e1w=1 & d2w {
-    $(VF) = 0;
-    local old_cf:3 = zext($(CF));
-    $(CF) = (d2w & 1) != 0;
-    # We need to zero bit 15 here.  I think this needs to be done manually, but I'm not sure.
-    d2w = ((((d2w & 0x00FFFF) >> 1) | (d2w & 0xFF0000)) & 0xFF7FFF) | (old_cf << 15);
-    $(NF) = (d2w:2 s< 0);
-    $(ZF) = (d2w:2 == 0);
+    local v:3 = d2w;
+    local c:3 = zext(CF);
+    d2w = (v & 0xFF0000) | ((v >> 1) & 0x007FFF) | (c << 15);
+    nz16(d2w);
+    CF = (v & 1) != 0;
 }
 :ROL d2w is opcode2=0xF3 & opcode2x=0x3 & e1w=0 & d2w {
-    $(VF) = 0;
-    local old_cf:3 = zext($(CF));
-    $(CF) = (d2w & 0x8000) != 0;
-    d2w = ((d2w << 1) & 0x00FFFE) | (d2w & 0xFF0000) | old_cf;
-    $(NF) = (d2w:2 s< 0);
-    $(ZF) = (d2w:2 == 0);
+    local v:3 = d2w;
+    local c:3 = zext(CF);
+    d2w = (v & 0xFF0000) | ((v << 1) & 0x00FFFE) | c;
+    nz16(d2w);
+    CF = (v & 0x8000) != 0;
 }
 
-:BTST imm8,d2w is opcode2=0xF5 & opcode2x=0x0 & e1w=1 & d2w; imm8 { bitwise16resultflags(d2w & imm8); } # zext(imm8) causes errors
-:BTST imm16,d2w is opcode2=0xF7 & opcode2x=0x0 & e1w=1 & d2w; imm16 { bitwise16resultflags(d2w & imm16); } # zext(imm16) causes errors
+:BTST imm8,d2w is opcode2=0xF5 & opcode2x=0x0 & e1w=1 & d2w; imm8 { local t:3 = d2w & imm8; nz16(t); }
+:BTST imm16,d2w is opcode2=0xF7 & opcode2x=0x0 & e1w=1 & d2w; imm16 { local t:3 = d2w & imm16; nz16(t); }
 
-# There is apparently an unneeded truncation in here
 :BSET d2w,(a1w) is opcode2=0xF0 & opcode2x=0x2 & a1w & d2w {
-    local mem_value:1 = zext(*:1 a1w);
-    bitwise16resultflags(zext(mem_value) & d2w); # Yes, bitwise and here for the flags
-    *:1 a1w = (mem_value | d2w:1);
+    local m:1 = *:1 a1w;
+    local t:3 = zext(m) & d2w;
+    nz16(t); # Yes, bitwise and here for the flags
+    *:1 a1w = m | d2w:1;
 }
 :BCLR d2w,(a1w) is opcode2=0xF0 & opcode2x=0x3 & a1w & d2w {
-    local mem_value:1 = zext(*:1 a1w);
-    bitwise16resultflags(zext(mem_value) & d2w); # Yes, bitwise and here for the flags
-    *:1 a1w = (mem_value & ~d2w:1);
+    local m:1 = *:1 a1w;
+    local t:3 = zext(m) & d2w;
+    nz16(t);
+    *:1 a1w = m & ~d2w:1;
 }
 
 dest: rel is delta8 [ rel = inst_next + delta8; ] {
@@ -565,38 +464,42 @@ label24: rel is delta24 [ rel = inst_next + delta24; ] {
 :JMP (a1w) is opcode2=0xF0 & opcode2x=0x0 & a1w & e2w=0 { goto [a1w]; }
 
 :JSR label16 is fullopcode1=0xFD; label16 {
-    #*:3 SP = inst_next;
-    #SP = SP - 4;
+    A3 = A3 - 4;
+    *:3 A3 = inst_next;
     call label16;
 }
 :JSR label24 is opcode2=0xF4 & opcode2f=0xE1; label24 {
-    #*:3 SP = inst_next;
-    #SP = SP - 4;
+    A3 = A3 - 4;
+    *:3 A3 = inst_next;
     call label24;
 }
 :JSR (a1w) is opcode2=0xF0 & opcode2x=0x0 & a1w & e2w=1 {
-    #*:3 SP = inst_next;
-    #SP = SP - 4;
-    call [a1w];
+    local t:3 = a1w;
+    A3 = A3 - 4;
+    *:3 A3 = inst_next;
+    call [t];
 }
 
 :NOP is fullopcode1=0xF6 {}
 
 :RTS is fullopcode1=0xFE {
-    local addr = *:3 SP;
-    #SP = SP + 4;
-    # I'm not sure the brackets here (and in JMP/JSR (A1)) are correct
+    # JSR pushes the 24-bit return address in a 4-byte slot (A3 - 4); RTS pops it.
+    local addr:3 = *:3 A3;
+    A3 = A3 + 4;
     return [addr];
 }
 
 :RTI is fullopcode1=0xEB {
-    PSW = *:2 SP;
-    local addr = *:3 (SP + 2);
-    SP = SP + 6;
+    local p:2 = *:2 A3;
+    setPSW(p);
+    local addr = *:3 (A3 + 2);
+    A3 = A3 + 6;
     return [addr];
 }
 
-:BREAK is fullopcode1=0xFF unimpl # GDB extension
+:BREAK is fullopcode1=0xFF { software_break(); } # GDB extension (debugger breakpoint)
+# binutils decodes F0 10 as syscall (simulator system call)
+:SYSCALL is opcode2=0xF0 & opcode2f=0x10 { syscall(); }
 
 @if defined(H_VARIANT)
 # MN102L (Pub.No.12250-030E) vs MN102H (Pub.No.22360-013E):
@@ -609,7 +512,7 @@ label24: rel is delta24 [ rel = inst_next + delta24; ] {
 
 # "Prefix instruction reversing the following instruction of addition/subtraction on saturation operation flag of PSW"
 # Fortunately not used in the code I have, because I have NO CLUE what that means
-:PXST is opcode2=0xF3 & opcode2f=0xFC unimpl
+:PXST is opcode2=0xF3 & opcode2f=0xFC { pxst(); }
 
 macro bittest(addr, bit) {
     $(VF) = 0;
@@ -623,16 +526,16 @@ macro bittest(addr, bit) {
 :TBNZ (Addr24_1)bit,dest is opcode3=0xF3 & opcode32=0xFE & opcode33=0xC & bitmode=1 & bit; Addr24_1; dest { bittest(Addr24_1, bit); if ($(ZF) == 0) goto dest; }
 
 :BSET (Addr24_1)bit is opcode3=0xF3 & opcode32=0xFE & opcode33=0xD & bitmode=0 & bit; Addr24_1 { Addr24_1 = Addr24_1 | (1 << bit); }
-:BLCR (Addr24_1)bit is opcode3=0xF3 & opcode32=0xFE & opcode33=0xD & bitmode=1 & bit; Addr24_1 { Addr24_1 = Addr24_1 & ~(1 << bit); }
+:BCLR (Addr24_1)bit is opcode3=0xF3 & opcode32=0xFE & opcode33=0xD & bitmode=1 & bit; Addr24_1 { Addr24_1 = Addr24_1 & ~(1 << bit); }
 
 :TBZ  (delta8,"A2")bit,dest is opcode3=0xF3 & opcode32=0xFF & opcode33=0x8 & bitmode=0 & bit; delta8; dest { bittest(*:1 (A2 + delta8), bit); if ($(ZF) == 1) goto dest; }
-:TBZ  (delta8,"SP")bit,dest is opcode3=0xF3 & opcode32=0xFF & opcode33=0x8 & bitmode=1 & bit; delta8; dest { bittest(*:1 (SP + delta8), bit); if ($(ZF) == 1) goto dest; }
+:TBZ  (delta8,"A3")bit,dest is opcode3=0xF3 & opcode32=0xFF & opcode33=0x8 & bitmode=1 & bit; delta8; dest { bittest(*:1 (A3 + delta8), bit); if ($(ZF) == 1) goto dest; }
 :BSET (delta8,"A2")bit is opcode3=0xF3 & opcode32=0xFF & opcode33=0x9 & bitmode=0 & bit; delta8 { *:1 (A2 + delta8) = *:1 (A2 + delta8) | (1 << bit); }
-:BSET (delta8,"SP")bit is opcode3=0xF3 & opcode32=0xFF & opcode33=0x9 & bitmode=1 & bit; delta8 { *:1 (SP + delta8) = *:1 (SP + delta8) | (1 << bit); }
+:BSET (delta8,"A3")bit is opcode3=0xF3 & opcode32=0xFF & opcode33=0x9 & bitmode=1 & bit; delta8 { *:1 (A3 + delta8) = *:1 (A3 + delta8) | (1 << bit); }
 :TBNZ (delta8,"A2")bit,dest is opcode3=0xF3 & opcode32=0xFF & opcode33=0xA & bitmode=0 & bit; delta8; dest { bittest(*:1 (A2 + delta8), bit); if ($(ZF) == 0) goto dest; }
-:TBNZ (delta8,"SP")bit,dest is opcode3=0xF3 & opcode32=0xFF & opcode33=0xA & bitmode=1 & bit; delta8; dest { bittest(*:1 (SP + delta8), bit); if ($(ZF) == 0) goto dest; }
+:TBNZ (delta8,"A3")bit,dest is opcode3=0xF3 & opcode32=0xFF & opcode33=0xA & bitmode=1 & bit; delta8; dest { bittest(*:1 (A3 + delta8), bit); if ($(ZF) == 0) goto dest; }
 :BCLR (delta8,"A2")bit is opcode3=0xF3 & opcode32=0xFF & opcode33=0xB & bitmode=0 & bit; delta8 { *:1 (A2 + delta8) = *:1 (A2 + delta8) & ~(1 << bit); }
-:BCLR (delta8,"SP")bit is opcode3=0xF3 & opcode32=0xFF & opcode33=0xB & bitmode=1 & bit; delta8 { *:1 (SP + delta8) = *:1 (SP + delta8) & ~(1 << bit); }
+:BCLR (delta8,"A3")bit is opcode3=0xF3 & opcode32=0xFF & opcode33=0xB & bitmode=1 & bit; delta8 { *:1 (A3 + delta8) = *:1 (A3 + delta8) & ~(1 << bit); }
 
 # New F4 instructions
 :BSET imm8,(Addr24_1) is opcode2=0xF4 & opcode2f=0x4b; Addr24_1; imm8 { Addr24_1 = Addr24_1 | imm8; }
@@ -685,20 +588,20 @@ macro bittest(addr, bit) {
     MDR = res32(2);
 }
 # F5 Fn instructions, n between 0 and 7 (extended code L)
-:MULQL Imm8,d2w is opcode2=0xF5 & opcode2x=0xF & e1w=0 & d2w; delta8=0x04; Imm8 {
+:MULQL Imm8,d2w is opcode2=0xF5 & opcode2x=0xF & bitmode2=0 & d2w; delta8=0x04; Imm8 {
     local res32:4 = zext(d2w:2) * zext(Imm8);
     d2w = res32:3;
 }
-:MULQH Imm8,d2w is opcode2=0xF5 & opcode2x=0xF & e1w=0 & d2w; delta8=0x05; Imm8 {
+:MULQH Imm8,d2w is opcode2=0xF5 & opcode2x=0xF & bitmode2=0 & d2w; delta8=0x05; Imm8 {
     local res32:4 = zext(d2w:2) * zext(Imm8);
     local reshigh:2 = res32(2);
     d2w = sext(reshigh);
 }
-:MULQL Imm16,d2w is opcode2=0xF5 & opcode2x=0xF & e1w=1 & d2w; delta8=0x08; Imm16 {
+:MULQL Imm16,d2w is opcode2=0xF5 & opcode2x=0xF & bitmode2=0 & d2w; delta8=0x08; Imm16 {
     local res32:4 = zext(d2w:2) * zext(Imm16);
     d2w = res32:3;
 }
-:MULQH Imm16,d2w is opcode2=0xF5 & opcode2x=0xF & e1w=1 & d2w; delta8=0x09; Imm16 {
+:MULQH Imm16,d2w is opcode2=0xF5 & opcode2x=0xF & bitmode2=0 & d2w; delta8=0x09; Imm16 {
     local res32:4 = zext(d2w:2) * zext(Imm16);
     local reshigh:2 = res32(2);
     d2w = sext(reshigh);

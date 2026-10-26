@@ -361,24 +361,16 @@
     <register name="A0" group="ADDRESS" />
     <register name="A1" group="ADDRESS" />
     <register name="A2" group="ADDRESS" />
-    <register name="SP" group="ADDRESS" />
-    <!-- <register name="PC" /> I don't think this is needed given the <programcounter/> -->
+    <register name="A3" group="ADDRESS" />
     <register name="MDR" group="DATA" />
     <register name="PSW" group="FLAGS" />
-    <!-- hack registers -->
-    <register name="PSW_ZF"  group="FLAGS" hidden="true" />
-    <register name="PSW_NF"  group="FLAGS" hidden="true" />
-    <register name="PSW_CF"  group="FLAGS" hidden="true" />
-    <register name="PSW_VF"  group="FLAGS" hidden="true" />
-    <register name="PSW_ZX"  group="FLAGS" hidden="true" />
-    <register name="PSW_NX"  group="FLAGS" hidden="true" />
-    <register name="PSW_CX"  group="FLAGS" hidden="true" />
-    <register name="PSW_VX"  group="FLAGS" hidden="true" />
-    <register name="PSW_IM0" group="FLAGS" hidden="true" />
-    <register name="PSW_IM1" group="FLAGS" hidden="true" />
-    <register name="PSW_IM2" group="FLAGS" hidden="true" />
-    <register name="PSW_IE"  group="FLAGS" hidden="true" />
-    <register name="PSW_S0"  group="FLAGS" hidden="true" />
-    <register name="PSW_S1"  group="FLAGS" hidden="true" />
+    <register name="ZF" group="FLAGS" />
+    <register name="NF" group="FLAGS" />
+    <register name="CF" group="FLAGS" />
+    <register name="VF" group="FLAGS" />
+    <register name="ZX" group="FLAGS" />
+    <register name="NX" group="FLAGS" />
+    <register name="CX" group="FLAGS" />
+    <register name="VX" group="FLAGS" />
   </register_data>
 </processor_spec>
