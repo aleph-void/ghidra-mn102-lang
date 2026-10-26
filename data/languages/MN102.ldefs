@@ -4,7 +4,10 @@
 "When 8-bit data is loaded, it will be sign-extended or zero-extended to 24 bits"
 which I interpret as meaning little-endian.
 
-... it's explicitly stated on p. 34 (6-1) -->
+... it's explicitly stated on p. 34 (6-1)
+
+The language ID keeps upstream's "BE" (the processor is little-endian, endian="little" below is
+what Ghidra uses) so that existing projects keep working. -->
 <language_definitions>
   <language processor="MN102"
             endian="little"
@@ -17,5 +20,6 @@ which I interpret as meaning little-endian.
             id="MN102:BE:24:default">
     <description>MN102 Microcontroller Family</description>
     <compiler name="default" spec="MN102.cspec" id="default"/>
+    <external_name tool="gnu" name="mn10200"/>
   </language>
 </language_definitions>
