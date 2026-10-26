@@ -1,8 +1,19 @@
 A SLEIGH processor spec for [Ghidra](https://github.com/NationalSecurityAgency/ghidra) for the Matsushita (Panasonic) MN102 processor.  The MN102 is used by the Nintendo GameCube and Wii for the disc drive.
 
+> **Ghidra-Rare fork.** This is the [Ghidra-Rare](https://github.com/aleph-void/Ghidra-Rare) fork of
+> Pokechu22/ghidra-mn102-lang. It was verified against GNU objdump and MAME and fixed there; what
+> changed, the test results and the remaining gaps are in [GHIDRA-RARE.md](GHIDRA-RARE.md), credits in
+> [CREDITS.md](CREDITS.md). Prebuilt extension zips for Ghidra 12.1.3, 12.1.4 and 12.2 are on this
+> fork's GitHub Releases page.
+
 ## Installation
 
-This repository should be placed within the Ghidra install as the folder `Ghidra/Processors/MN102`, such that `Ghidra/Processors/MN102/data` is the path to the `data` folder.  Ghidra should automatically add it to the available processor list on its next start, and compile the files when it is first used.
+Install a release zip with `File -> Install Extensions...` in Ghidra (12.1.3, 12.1.4 or 12.2), or
+build one with `GHIDRA_INSTALL_DIR=... "$GHIDRA_INSTALL_DIR/support/gradle/gradlew" buildExtension`.
+
+Alternatively, this repository can be placed within the Ghidra install as the folder `Ghidra/Processors/MN102`, such that `Ghidra/Processors/MN102/data` is the path to the `data` folder.  Ghidra should automatically add it to the available processor list on its next start, and compile the files when it is first used.
+
+ELF files (`e_machine` 90, or the old Cygnus value 0xdead) are imported with this language automatically, with their relocations applied.
 
 ## Manuals
 
@@ -100,6 +111,10 @@ Ghidra handles 3-byte values surprisingly well.  Most actual pointers are 3 byte
 
 ### Registers show up in decompilation
 
+*Fixed in the Ghidra-Rare fork:* the compiler spec listed the register space as global memory and
+the prototype did not mark D0/D1/A0 as changed by calls; the flags now live in the register space
+too. The `memset` example decompiles to a loop over local values.
+
 For some reason, registers show up in the decompilation, instead of using local variables.  For instance, the above memset example actually decompiles to this:
 
 ```C
@@ -150,6 +165,10 @@ void memset(byte value,uint2 count,byte *dst)
 This doesn't make sense to me, since other processors don't have this problem (though, I think the 8051 one does, and I based mine off of it).
 
 ### Parameter ordering
+
+*Ghidra-Rare fork:* the prototype now follows gcc's mn10200 port (arguments in D0, D1 and then the
+stack, results in D0 or, for pointers, A0; D2, D3, A1, A2 preserved). Code from Panasonic's own
+compiler (such as the GameCube drive firmware) may use another convention; that is not verified.
 
 The MN102 has both data registers (`D0`, `D1`, `D2`, `D3`) and address registers (`A0`, `A1`, `A2`, `SP`).  Parameters can be in either of them, with pointers usually going into address registers.  Thus, the original order of the parameters can't be determined, and things will often be a bit weird (I manually adjusted them in the original `memset` example).
 
