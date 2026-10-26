@@ -4,7 +4,6 @@
   <!-- http://hitmen.c02.at/files/yagcd/yagcd/chap5.html#sec5.7.4 -->
   <global>
     <range space="ram"/>
-    <range space="register"/>
   </global>
   <data_organization>
     <absolute_max_alignment value="0" /> <!-- no maximum alignment -->
@@ -22,13 +21,19 @@
       <entry size="4" alignment="4" />
     </size_alignment_map>
   </data_organization>
-  <stackpointer register="SP" space="ram" growth="negative"/>
+  <stackpointer register="A3" space="ram" growth="negative"/>
   <returnaddress>
     <varnode space="stack" offset="0" size="3"/>
   </returnaddress>
+  <!-- Ghidra-Rare: the calling convention of gcc's mn10200 port (gcc 3.3, config/mn10200):
+       the first two argument words in D0 and D1, the rest on the stack after the 4-byte
+       return-address slot JSR pushes; values return in D0, 24-bit pointers (PSImode) in A0.
+       D2, D3, A1, A2 (gcc's frame pointer) are callee-saved; D0, D1, A0, MDR and the flags
+       are not. (Upstream's prototype, marked "complete guess", took A0 as a third argument
+       and did not list D0/D1/A0 as killed, which left register writes visible as globals in
+       the decompiler output.) -->
   <default_proto>
-    <prototype name="__stdcall" extrapop="0" stackshift="0" strategy="register">
-      <!-- Complete guess! -->
+    <prototype name="__stdcall" extrapop="4" stackshift="4" strategy="register">
       <input>
         <pentry minsize="1" maxsize="3">
           <register name="D0"/>
@@ -36,11 +41,14 @@
         <pentry minsize="1" maxsize="3">
           <register name="D1"/>
         </pentry>
-        <pentry minsize="3" maxsize="3">
-          <register name="A0"/>
+        <pentry minsize="1" maxsize="500" align="2">
+          <addr offset="4" space="stack"/>
         </pentry>
       </input>
       <output>
+        <pentry minsize="3" maxsize="3" metatype="ptr">
+          <register name="A0"/>
+        </pentry>
         <pentry minsize="1" maxsize="3">
           <register name="D0"/>
         </pentry>
@@ -50,24 +58,25 @@
         <register name="D3"/>
         <register name="A1"/>
         <register name="A2"/>
-        <register name="SP"/>
+        <register name="A3"/>
       </unaffected>
       <killedbycall>
-        <register name="PSW_ZF" />
-        <register name="PSW_NF" />
-        <register name="PSW_CF" />
-        <register name="PSW_VF" />
-        <register name="PSW_ZX" />
-        <register name="PSW_NX" />
-        <register name="PSW_CX" />
-        <register name="PSW_VX" />
+        <register name="D0"/>
+        <register name="D1"/>
+        <register name="A0"/>
+        <register name="MDR"/>
+        <register name="ZF"/>
+        <register name="NF"/>
+        <register name="CF"/>
+        <register name="VF"/>
+        <register name="ZX"/>
+        <register name="NX"/>
+        <register name="CX"/>
+        <register name="VX"/>
       </killedbycall>
-      <!--<localrange>
-        <range space="stack" first="0x0" last="0xf"/>
-      </localrange>-->
     </prototype>
   </default_proto>
-  
+
   <!--<callfixup name="switch_override_ACC">
     <pcode>
       <body><![CDATA[
